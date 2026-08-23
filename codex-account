@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 Usage:
   codex-account list
-  codex-account login <account>
+  codex-account login <account> [--force]
   codex-account status <account>
   codex-account cli <account> [codex arguments...]
   codex-account code <account> [path or VS Code arguments...]
@@ -97,6 +97,9 @@ case "$command_name" in
   login)
     account="${1:-}"
     [[ -n "$account" ]] || { usage; exit 2; }
+    force="${2:-}"
+    [[ -z "$force" || "$force" == "--force" ]] || { usage; exit 2; }
+    [[ "$#" -le 2 ]] || { usage; exit 2; }
     dir="$(account_dir "$account")"
     install -d -m 700 "$dir"
     if [[ ! -f "$dir/config.toml" ]]; then
@@ -104,6 +107,11 @@ case "$command_name" in
       chmod 600 "$dir/config.toml"
     fi
     prepare_account "$dir"
+    if [[ "$force" != "--force" && -f "$dir/auth.json" ]] && \
+      CODEX_HOME="$dir" codex login status >/dev/null 2>&1; then
+      printf 'Account %s is already logged in. Use --force to log in again.\n' "$account"
+      exit 0
+    fi
     CODEX_HOME="$dir" exec codex login
     ;;
 

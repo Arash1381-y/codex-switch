@@ -6,9 +6,10 @@ Each named account stores its authentication and configuration under `~/.codex-<
 
 ## Requirements
 
-- Bash
+- Bash 4 or newer
+- Python 3
 - [Codex CLI](https://learn.chatgpt.com/docs/codex/cli)
-- Visual Studio Code for the optional `code` command
+- Visual Studio Code, if you use `codex-account code`
 
 ## Install
 
@@ -18,7 +19,26 @@ Run:
 ./install.sh
 ```
 
-The installer copies `codex-account` to `~/.local/bin`. Add that directory to `PATH` if your shell does not include it.
+The installer copies `codex-account` and `codex-account-migrate` to `~/.local/bin`. Add that directory to `PATH` if your shell does not include it.
+
+## Migrate existing history
+
+Close Codex, then run:
+
+```bash
+codex-account-migrate
+```
+
+The migration command finds the default `~/.codex` home and named `~/.codex-*` homes. It performs these changes:
+
+- Copies local rollout files into `~/.codex-shared/sessions`.
+- Moves the old session and writer-lock directories into a timestamped backup under your home directory.
+- Links each Codex home to the shared directories.
+- Sets `sqlite_home` in each account config and asks Codex to rebuild its thread index on the next start.
+
+The command keeps each `auth.json` file in its original account home. A named login can resume the migrated local chats, while later requests use the named account's access and limits.
+
+The migration stops before changing files if two accounts contain divergent copies of one rollout. Identical copies and copies where one file extends the other merge without losing messages.
 
 ## Usage
 
@@ -28,6 +48,10 @@ Create or refresh an account login:
 codex-account login personal
 codex-account login work
 ```
+
+If an account is already authenticated, `login` prints a message and exits. Use
+`codex-account login personal --force` when you intentionally want to replace
+its login.
 
 List accounts and check a login:
 
@@ -56,21 +80,15 @@ The wrapper gives each account a separate VS Code user-data directory while reus
 
 The wrapper uses these paths:
 
-| Path | Contents |
-| --- | --- |
-| `~/.codex-<account>` | Account authentication and Codex configuration |
-| `~/.config/Code-codex-<account>` | VS Code user data for the account |
-| `~/.codex-shared/sessions` | Shared local session rollouts |
-| `~/.codex-shared/sqlite` | Shared thread indexes and other SQLite-backed state |
-| `~/.codex-shared/thread-writer-locks` | Locks that prevent concurrent writes to one thread |
+| Path                                  | Contents                                            |
+| ------------------------------------- | --------------------------------------------------- |
+| `~/.codex-<account>`                  | Account authentication and Codex configuration      |
+| `~/.config/Code-codex-<account>`      | VS Code user data for the account                   |
+| `~/.codex-shared/sessions`            | Shared local session rollouts                       |
+| `~/.codex-shared/sqlite`              | Shared thread indexes and other SQLite-backed state |
+| `~/.codex-shared/thread-writer-locks` | Locks that prevent concurrent writes to one thread  |
 
 Set `CODEX_ACCOUNT_SHARED_HOME` to use another shared root. Codex documents `CODEX_HOME` and `CODEX_SQLITE_HOME` in its [environment variable reference](https://learn.chatgpt.com/docs/config-file/environment-variables).
-
-## Existing accounts
-
-The wrapper creates shared links for a new named account. It stops if an existing `~/.codex-<account>/sessions` directory has not been migrated. This guard prevents the wrapper from overwriting local chats.
-
-Back up existing Codex homes before merging them. Copy their rollout files into one shared `sessions` directory, check for conflicting session IDs, then replace each account's `sessions` and `thread-writer-locks` directories with links to the shared directories. Point all participating accounts at the same SQLite home.
 
 ## Notes
 
