@@ -1,6 +1,6 @@
-# codex-account
+# codex-switch
 
-`codex-account` is a Bash wrapper for keeping several Codex logins on one machine.
+`codex-switch` is a Bash wrapper for keeping several Codex logins on one machine.
 
 Each named account stores its authentication and configuration under `~/.codex-<account>`. Accounts launched through the wrapper share local sessions, SQLite state, and thread writer locks under `~/.codex-shared`. You can resume a local chat with another account without logging out first.
 
@@ -9,7 +9,7 @@ Each named account stores its authentication and configuration under `~/.codex-<
 - Bash 4 or newer
 - Python 3
 - [Codex CLI](https://learn.chatgpt.com/docs/codex/cli)
-- Visual Studio Code, if you use `codex-account code`
+- Visual Studio Code, if you use `codex-switch code`
 
 ## Install
 
@@ -19,14 +19,14 @@ Run:
 ./install.sh
 ```
 
-The installer copies `codex-account` and `codex-account-migrate` to `~/.local/bin`. Add that directory to `PATH` if your shell does not include it.
+The installer copies `codex-switch` and `codex-switch-migrate` to `~/.local/bin`. Add that directory to `PATH` if your shell does not include it.
 
 ## Migrate existing history
 
 Close Codex, then run:
 
 ```bash
-codex-account-migrate
+codex-switch-migrate
 ```
 
 The migration command finds the default `~/.codex` home and named `~/.codex-*` homes. It performs these changes:
@@ -45,33 +45,33 @@ The migration stops before changing files if two accounts contain divergent copi
 Create or refresh an account login:
 
 ```bash
-codex-account login personal
-codex-account login work
+codex-switch login personal
+codex-switch login work
 ```
 
 If an account is already authenticated, `login` prints a message and exits. Use
-`codex-account login personal --force` when you intentionally want to replace
+`codex-switch login personal --force` when you intentionally want to replace
 its login.
 
 List accounts and check a login:
 
 ```bash
-codex-account list
-codex-account status personal
+codex-switch list
+codex-switch status personal
 ```
 
 Run the CLI with an account:
 
 ```bash
-codex-account cli personal
-codex-account cli work resume --all
-codex-account cli personal resume --last --all
+codex-switch cli personal
+codex-switch cli work resume --all
+codex-switch cli personal resume --last --all
 ```
 
 Open a separate VS Code window:
 
 ```bash
-codex-account code personal ~/src/project
+codex-switch code personal ~/src/project
 ```
 
 The wrapper gives each account a separate VS Code user-data directory while reusing the installed extensions directory.
@@ -88,7 +88,7 @@ The wrapper uses these paths:
 | `~/.codex-shared/sqlite`              | Shared thread indexes and other SQLite-backed state |
 | `~/.codex-shared/thread-writer-locks` | Locks that prevent concurrent writes to one thread  |
 
-Set `CODEX_ACCOUNT_SHARED_HOME` to use another shared root. Codex documents `CODEX_HOME` and `CODEX_SQLITE_HOME` in its [environment variable reference](https://learn.chatgpt.com/docs/config-file/environment-variables).
+Set `CODEX_SWITCH_SHARED_HOME` to use another shared root. Codex documents `CODEX_HOME` and `CODEX_SQLITE_HOME` in its [environment variable reference](https://learn.chatgpt.com/docs/config-file/environment-variables).
 
 ## Notes
 

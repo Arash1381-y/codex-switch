@@ -4,11 +4,11 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  codex-account list
-  codex-account login <account> [--force]
-  codex-account status <account>
-  codex-account cli <account> [codex arguments...]
-  codex-account code <account> [path or VS Code arguments...]
+  codex-switch list
+  codex-switch login <account> [--force]
+  codex-switch status <account>
+  codex-switch cli <account> [codex arguments...]
+  codex-switch code <account> [path or VS Code arguments...]
 
 Named accounts keep separate authentication under ~/.codex-<account>.
 All accounts share local Codex sessions and SQLite-backed thread history.
@@ -25,7 +25,7 @@ account_dir() {
 }
 
 shared_root() {
-  printf '%s' "${CODEX_ACCOUNT_SHARED_HOME:-$HOME/.codex-shared}"
+  printf '%s' "${CODEX_SWITCH_SHARED_HOME:-$HOME/.codex-shared}"
 }
 
 prepare_account() {
@@ -61,7 +61,7 @@ require_account() {
   local dir="$1"
   if [[ ! -f "$dir/auth.json" ]]; then
     printf 'Account is not logged in: %s\n' "$dir" >&2
-    printf 'Run: codex-account login <account>\n' >&2
+    printf 'Run: codex-switch login <account>\n' >&2
     exit 1
   fi
 }
@@ -81,6 +81,8 @@ case "$command_name" in
       [[ -d "$dir" ]] || continue
       [[ "$dir" == "$(shared_root)" ]] && continue
       [[ "${dir##*/}" == .codex-account-backup-* ]] && continue
+      [[ "${dir##*/}" == .codex-switch-backup-* ]] && continue
+      [[ "${dir##*/}" == .codex-switch-migration-backup.* ]] && continue
       found=true
       account="${dir##*/.codex-}"
       if [[ -f "$dir/auth.json" ]]; then

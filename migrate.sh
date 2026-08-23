@@ -2,7 +2,7 @@
 set -euo pipefail
 
 fail() {
-  printf 'codex-account-migrate: %s\n' "$1" >&2
+  printf 'codex-switch-migrate: %s\n' "$1" >&2
   exit 1
 }
 
@@ -10,7 +10,7 @@ if pgrep -u "$UID" -x codex >/dev/null 2>&1; then
   fail "close running Codex CLI processes before migrating"
 fi
 
-shared="${CODEX_ACCOUNT_SHARED_HOME:-$HOME/.codex-shared}"
+shared="${CODEX_SWITCH_SHARED_HOME:-$HOME/.codex-shared}"
 [[ "$shared" != *'"'* ]] || fail "the shared path cannot contain a double quote"
 
 declare -a homes=()
@@ -23,6 +23,8 @@ for dir in "$HOME"/.codex-*; do
   [[ "${dir##*/}" == .codex-shared ]] && continue
   [[ "${dir##*/}" == .codex-account-backup-* ]] && continue
   [[ "${dir##*/}" == .codex-account-migration-backup.* ]] && continue
+  [[ "${dir##*/}" == .codex-switch-backup-* ]] && continue
+  [[ "${dir##*/}" == .codex-switch-migration-backup.* ]] && continue
   homes+=("$dir")
 done
 
@@ -83,7 +85,7 @@ for home_dir in "${homes[@]}"; do
   done < <(find "$sessions" -type f -name '*.jsonl' -print0)
 done
 
-backup="$(mktemp -d "$HOME/.codex-account-migration-backup.XXXXXX")"
+backup="$(mktemp -d "$HOME/.codex-switch-migration-backup.XXXXXX")"
 chmod 700 "$backup"
 install -d -m 700 "$shared" "$shared/sessions" "$shared/sqlite" "$shared/thread-writer-locks"
 
@@ -195,4 +197,4 @@ fi
 printf 'Merged %s rollout files.\n' "${#rollout_keys[@]}"
 printf 'Shared storage: %s\n' "$shared"
 printf 'Backup: %s\n' "$backup"
-printf 'Run codex or codex-account, then open the resume picker to rebuild the index.\n'
+printf 'Run codex or codex-switch, then open the resume picker to rebuild the index.\n'
