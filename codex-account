@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  codex-account list
+  codex-account login <account>
+  codex-account status <account>
+  codex-account cli <account> [codex arguments...]
+  codex-account code <account> [path or VS Code arguments...]
+
+Named accounts keep separate authentication under ~/.codex-<account>.
+All accounts share local Codex sessions and SQLite-backed thread history.
+EOF
+}
+
+account_dir() {
+  local account="$1"
+  if [[ ! "$account" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
+    printf 'Invalid account name: %s\n' "$account" >&2
+    exit 2
+  fi
+  printf '%s/.codex-%s' "$HOME" "$account"
+}
+
+shared_root() {
+  printf '%s' "${CODEX_ACCOUNT_SHARED_HOME:-$HOME/.codex-shared}"
+}
+
+prepare_account() {
+  local dir="$1"
+  local root
+  root="$(shared_root)"
+
+  install -d -m 700 "$root" "$root/sessions" "$root/sqlite" "$root/thread-writer-locks"
+
+  local name path target actual
+  for name in sessions thread-writer-locks; do
+    path="$dir/$name"
+    target="$root/$name"
+    if [[ -L "$path" ]]; then
+      actual="$(readlink -f "$path")"
+      if [[ "$actual" != "$target" ]]; then
+        printf 'Unexpected %s link for %s: %s\n' "$name" "$dir" "$actual" >&2
+        exit 1
+      fi
+    elif [[ -e "$path" ]]; then
+      printf '%s is not connected to shared Codex storage.\n' "$path" >&2
+      printf 'Restore the migration or move its contents into %s first.\n' "$target" >&2
+      exit 1
+    else
+      ln -s "$target" "$path"
+    fi
+  done
+
+  export CODEX_SQLITE_HOME="$root/sqlite"
+}
+
+require_account() {
+  local dir="$1"
+  if [[ ! -f "$dir/auth.json" ]]; then
+    printf 'Account is not logged in: %s\n' "$dir" >&2
+    printf 'Run: codex-account login <account>\n' >&2
+    exit 1
+  fi
+}
+
+command_name="${1:-}"
+if [[ -z "$command_name" ]]; then
+  usage
+  exit 2
+fi
+shift
+
+case "$command_name" in
+  list)
+    found=false
+    shopt -s nullglob
+    for dir in "$HOME"/.codex-*; do
+      [[ -d "$dir" ]] || continue
+      [[ "$dir" == "$(shared_root)" ]] && continue
+      [[ "${dir##*/}" == .codex-account-backup-* ]] && continue
+      found=true
+      account="${dir##*/.codex-}"
+      if [[ -f "$dir/auth.json" ]]; then
+        printf '%s\tlogged in\n' "$account"
+      else
+        printf '%s\tnot logged in\n' "$account"
+      fi
+    done
+    if [[ "$found" == false ]]; then
+      printf 'No named Codex accounts found.\n'
+    fi
+    ;;
+
+  login)
+    account="${1:-}"
+    [[ -n "$account" ]] || { usage; exit 2; }
+    dir="$(account_dir "$account")"
+    install -d -m 700 "$dir"
+    if [[ ! -f "$dir/config.toml" ]]; then
+      printf '%s\n' 'cli_auth_credentials_store = "file"' > "$dir/config.toml"
+      chmod 600 "$dir/config.toml"
+    fi
+    prepare_account "$dir"
+    CODEX_HOME="$dir" exec codex login
+    ;;
+
+  status)
+    account="${1:-}"
+    [[ -n "$account" ]] || { usage; exit 2; }
+    dir="$(account_dir "$account")"
+    require_account "$dir"
+    prepare_account "$dir"
+    CODEX_HOME="$dir" exec codex login status
+    ;;
+
+  cli)
+    account="${1:-}"
+    [[ -n "$account" ]] || { usage; exit 2; }
+    shift
+    dir="$(account_dir "$account")"
+    require_account "$dir"
+    prepare_account "$dir"
+    CODEX_HOME="$dir" exec codex "$@"
+    ;;
+
+  code)
+    account="${1:-}"
+    [[ -n "$account" ]] || { usage; exit 2; }
+    shift
+    dir="$(account_dir "$account")"
+    require_account "$dir"
+    prepare_account "$dir"
+
+    code_data_dir="$HOME/.config/Code-codex-$account"
+    if [[ ! -d "$code_data_dir/User" ]]; then
+      install -d -m 700 "$code_data_dir/User"
+      for filename in settings.json mcp.json; do
+        source_file="$HOME/.config/Code/User/$filename"
+        if [[ -f "$source_file" ]]; then
+          cp -p "$source_file" "$code_data_dir/User/$filename"
+        fi
+      done
+    fi
+
+    CODEX_HOME="$dir" exec code \
+      --user-data-dir "$code_data_dir" \
+      --extensions-dir "$HOME/.vscode/extensions" \
+      --new-window "$@"
+    ;;
+
+  *)
+    usage
+    exit 2
+    ;;
+esac
