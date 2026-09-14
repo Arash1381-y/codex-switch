@@ -63,16 +63,21 @@ codex-switch status personal
 Run the CLI with an account:
 
 ```bash
-codex-switch cli personal
-codex-switch cli work resume --all
-codex-switch cli personal resume --last --all
+codex-switch personal
+codex-switch work resume --all
+codex-switch personal resume --last --all
 ```
+
+The `cli` subcommand is optional. Running `codex-switch` or `codex-switch cli`
+without an account opens an interactive picker containing the logged-in accounts.
 
 Open a separate VS Code window:
 
 ```bash
 codex-switch code personal ~/src/project
 ```
+
+Running `codex-switch code` without an account opens the same account picker.
 
 The wrapper gives each account a separate VS Code user-data directory while reusing the installed extensions directory.
 

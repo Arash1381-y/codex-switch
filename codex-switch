@@ -6,12 +6,13 @@ usage() {
 Usage:
   codex-switch list
   codex-switch login <account> [--force]
-  codex-switch status <account>
-  codex-switch cli <account> [codex arguments...]
-  codex-switch code <account> [path or VS Code arguments...]
+  codex-switch status [account]
+  codex-switch [cli] [account] [codex arguments...]
+  codex-switch code [account] [path or VS Code arguments...]
 
 Named accounts keep separate authentication under ~/.codex-<account>.
 All accounts share local Codex sessions and SQLite-backed thread history.
+If an account is omitted, an interactive account picker is shown.
 EOF
 }
 
@@ -66,12 +67,59 @@ require_account() {
   fi
 }
 
-command_name="${1:-}"
-if [[ -z "$command_name" ]]; then
-  usage
-  exit 2
+select_account() {
+  local dirs=() accounts=() dir account
+
+  if [[ ! -t 0 ]]; then
+    printf 'An account is required when input is not interactive.\n' >&2
+    exit 2
+  fi
+
+  shopt -s nullglob
+  dirs=("$HOME"/.codex-*)
+  shopt -u nullglob
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" && -f "$dir/auth.json" ]] || continue
+    [[ "$dir" == "$(shared_root)" ]] && continue
+    [[ "${dir##*/}" == .codex-account-backup-* ]] && continue
+    [[ "${dir##*/}" == .codex-switch-backup-* ]] && continue
+    [[ "${dir##*/}" == .codex-switch-migration-backup.* ]] && continue
+    accounts+=("${dir##*/.codex-}")
+  done
+
+  if [[ "${#accounts[@]}" -eq 0 ]]; then
+    printf 'No logged-in Codex accounts found.\n' >&2
+    printf 'Run: codex-switch login <account>\n' >&2
+    exit 1
+  fi
+
+  printf 'Select a Codex account:\n' >&2
+  PS3='Account: '
+  select account in "${accounts[@]}"; do
+    if [[ -n "$account" ]]; then
+      printf '%s\n' "$account"
+      return
+    fi
+    printf 'Please enter a number from 1 to %s.\n' "${#accounts[@]}" >&2
+  done
+
+  printf 'No account selected.\n' >&2
+  exit 1
+}
+
+if [[ "$#" -eq 0 ]]; then
+  command_name=cli
+else
+  case "$1" in
+    list|login|status|cli|code)
+      command_name="$1"
+      shift
+      ;;
+    *)
+      command_name=cli
+      ;;
+  esac
 fi
-shift
 
 case "$command_name" in
   list)
@@ -119,7 +167,12 @@ case "$command_name" in
 
   status)
     account="${1:-}"
-    [[ -n "$account" ]] || { usage; exit 2; }
+    if [[ -n "$account" ]]; then
+      shift
+    else
+      account="$(select_account)"
+    fi
+    [[ "$#" -eq 0 ]] || { usage; exit 2; }
     dir="$(account_dir "$account")"
     require_account "$dir"
     prepare_account "$dir"
@@ -128,8 +181,11 @@ case "$command_name" in
 
   cli)
     account="${1:-}"
-    [[ -n "$account" ]] || { usage; exit 2; }
-    shift
+    if [[ -n "$account" ]]; then
+      shift
+    else
+      account="$(select_account)"
+    fi
     dir="$(account_dir "$account")"
     require_account "$dir"
     prepare_account "$dir"
@@ -138,8 +194,11 @@ case "$command_name" in
 
   code)
     account="${1:-}"
-    [[ -n "$account" ]] || { usage; exit 2; }
-    shift
+    if [[ -n "$account" ]]; then
+      shift
+    else
+      account="$(select_account)"
+    fi
     dir="$(account_dir "$account")"
     require_account "$dir"
     prepare_account "$dir"
